@@ -26,7 +26,7 @@ RUN apk --no-cache add ca-certificates
 
 COPY --from=build /build/cosmo-web /bin/cosmo-web
 
-EXPOSE 8000
+EXPOSE 5000
 
 ENTRYPOINT ["/bin/cosmo-web"]
 
