@@ -1,0 +1,22 @@
+{{ template "head.gohtml" . }}
+{{ template "header.gohtml" . }}
+
+    <main class="container">
+        <div class="gallery">
+            {{range $index, $image := .Images}}
+                <div class="gallery-item" 
+                     data-fullsize="{{ $.ImageConfig.BaseURL }}/{{ $.ImageConfig.FullsizeParams }}/{{ $.ImageConfig.Folder }}/{{ $image.Name }}">
+                    <img src="{{ $.ImageConfig.BaseURL }}/{{ $.ImageConfig.ThumbnailParams }}/{{ $.ImageConfig.Folder }}/{{ $image.Name }}" 
+                         alt="Cosmo the cat - photo {{ increment $index }}" 
+                         loading="lazy">
+                </div>
+            {{end}}
+        </div>
+    </main>
+
+    <div class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content">
+    </div>
+
+{{ template "footer.gohtml" . }}
