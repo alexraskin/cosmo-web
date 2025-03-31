@@ -30,7 +30,7 @@ func DefaultGalleryConfig() GalleryData {
 // Default configurations
 var (
 	defaultImageConfig = ImageConfig{
-		BaseURL:         "https://cats.twizy.sh/cdn-cgi/image",
+		BaseURL:         "https://cdn.cosmothecat.net/cdn-cgi/image",
 		ThumbnailParams: "width=300,height=200,fit=cover,quality=80",
 		FullsizeParams:  "quality=80",
 		Folder:          "cosmo",
