@@ -22,7 +22,6 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Heartbeat("/ping"))
-	r.Use(cacheControl)
 
 	r.Use(httprate.Limit(
 		100,
@@ -62,7 +61,6 @@ func (s *Server) Routes() http.Handler {
 
 	r.Handle("/robots.txt", serveFile(s.assets, "robots.txt"))
 	r.Handle("/sitemap.xml", serveFile(s.assets, "sitemap.xml"))
-	r.Handle("/favicon.ico", http.HandlerFunc(s.notFound))
 
 	r.Get("/", s.index)
 
@@ -100,16 +98,4 @@ func serveFile(fs http.FileSystem, path string) http.HandlerFunc {
 		}
 		_, _ = io.Copy(w, file)
 	}
-}
-
-func cacheControl(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/assets/") {
-			w.Header().Set("Cache-Control", "public, max-age=86400")
-			next.ServeHTTP(w, r)
-			return
-		}
-		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-		next.ServeHTTP(w, r)
-	})
 }
