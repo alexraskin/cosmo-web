@@ -1,8 +1,9 @@
 package cosmo
 
 import (
+	"encoding/json"
+	"errors"
 	"io"
-	"log/slog"
 	"mime"
 	"net/http"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
+	"golang.org/x/exp/slog"
 )
 
 func (s *Server) Routes() http.Handler {
@@ -21,6 +23,7 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.Compress(5))
 	r.Use(middleware.Heartbeat("/ping"))
 	r.Use(cacheControl)
 
@@ -34,32 +37,7 @@ func (s *Server) Routes() http.Handler {
 		),
 	))
 
-	r.Get("/assets/*", func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/assets/")
-
-		file, err := s.assets.Open(path)
-		if err != nil {
-			slog.Error("asset not found", slog.String("path", path), slog.Any("error", err))
-			http.Error(w, "Asset not found", http.StatusNotFound)
-			return
-		}
-		defer file.Close()
-
-		stat, err := file.Stat()
-		if err != nil {
-			slog.Error("error getting file stat", slog.String("path", path), slog.Any("error", err))
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		contentType := mime.TypeByExtension(filepath.Ext(path))
-		if contentType != "" {
-			w.Header().Set("Content-Type", contentType)
-		}
-
-		http.ServeContent(w, r, path, stat.ModTime(), file.(io.ReadSeeker))
-	})
-
+	r.Mount("/assets", http.FileServer(s.assets))
 	r.Handle("/robots.txt", serveFile(s.assets, "robots.txt"))
 	r.Handle("/sitemap.xml", serveFile(s.assets, "sitemap.xml"))
 
@@ -71,16 +49,32 @@ func (s *Server) Routes() http.Handler {
 }
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
-	http.NotFound(w, r)
+	if err := s.tmplFunc(w, "404.gohtml", nil); err != nil {
+		s.error(w, r, err, http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
+	if errors.Is(err, http.ErrHandlerTimeout) {
+		return
+	}
+	if status == http.StatusInternalServerError {
+		slog.ErrorCtx(r.Context(), "internal server error", slog.Any("err", err))
+	}
+	s.json(w, r, ErrorResponse{
+		Message:   err.Error(),
+		Status:    status,
+		Path:      r.URL.Path,
+		RequestID: middleware.GetReqID(r.Context()),
+	}, status)
 }
 
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 	data := DefaultGalleryConfig()
 
-	err := s.tmplFunc(w, "index.gohtml", data)
-	if err != nil {
-		slog.Error("template execution failed", slog.Any("error", err))
-		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+	if err := s.tmplFunc(w, "index.gohtml", data); err != nil {
+		slog.ErrorContext(r.Context(), "failed to render projects template", slog.Any("error", err))
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
@@ -112,4 +106,16 @@ func cacheControl(next http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) json(w http.ResponseWriter, r *http.Request, v any, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if r.Method == http.MethodHead {
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(v); err != nil && err != http.ErrHandlerTimeout {
+		slog.ErrorCtx(r.Context(), "failed to encode json", slog.Any("err", err))
+	}
 }

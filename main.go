@@ -4,6 +4,7 @@ import (
 	"embed"
 	"flag"
 	"html/template"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -22,27 +23,46 @@ var (
 
 var (
 	//go:embed templates/*
-	templates embed.FS
+	Templates embed.FS
 
 	//go:embed assets/*
-	assets embed.FS
+	Assets embed.FS
 )
 
 func main() {
 
 	port := flag.String("port", "5000", "port to listen on")
+	devMode := flag.Bool("dev", false, "run in dev mode")
 	flag.Parse()
+
+	var (
+		tmplFunc cosmo.ExecuteTemplateFunc
+		assets   http.FileSystem
+	)
 
 	funcs := template.FuncMap{
 		"increment": func(i int) int { return i + 1 },
 	}
 
-	tmpl, err := template.New("").Funcs(funcs).ParseFS(templates, "templates/*.gohtml")
-	if err != nil {
-		slog.Error("failed to parse templates", slog.Any("error", err))
-		os.Exit(-1)
+	if *devMode {
+		slog.Info("running in dev mode")
+		tmplFunc = func(wr io.Writer, name string, data any) error {
+			tmpl, err := template.New("").Funcs(funcs).ParseGlob("templates/*.gohtml")
+			if err != nil {
+				return err
+			}
+			return tmpl.ExecuteTemplate(wr, name, data)
+		}
+		assets = http.Dir(".")
+	} else {
+		tmpl, err := template.New("").Funcs(funcs).ParseFS(Templates, "templates/*.gohtml")
+		if err != nil {
+			slog.Error("failed to parse templates", slog.Any("error", err))
+			os.Exit(-1)
+		}
+		tmplFunc = tmpl.ExecuteTemplate
+		assets = http.FS(Assets)
 	}
-	tmplFunc := tmpl.ExecuteTemplate
 
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
@@ -52,7 +72,6 @@ func main() {
 		cosmo.FormatBuildVersion(version, commit, buildTime),
 		*port,
 		httpClient,
-		templates,
 		assets,
 		tmplFunc,
 	)
