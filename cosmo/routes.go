@@ -42,7 +42,7 @@ func (s *Server) Routes() http.Handler {
 	r.Handle("/sitemap.xml", serveFile(s.assets, "sitemap.xml"))
 
 	r.Get("/", s.index)
-
+	r.Get("/version", s.getVersion)
 	r.NotFound(s.notFound)
 
 	return r
@@ -76,6 +76,10 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 		slog.ErrorContext(r.Context(), "failed to render projects template", slog.Any("error", err))
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+func (s *Server) getVersion(w http.ResponseWriter, _ *http.Request) {
+	_, _ = w.Write([]byte(s.version))
 }
 
 func serveFile(fs http.FileSystem, path string) http.HandlerFunc {
