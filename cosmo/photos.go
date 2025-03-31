@@ -62,5 +62,8 @@ var (
 		{Name: "yvpqzd77q3xs1qr8vsn0077ehk2gg2mz.jpg"},
 		{Name: "IMG_20250221_210034.JPEG"},
 		{Name: "IMG_1385.JPEG"},
+		{Name: "IMG_20240619_110411.JPEG"},
+		{Name: "IMG_20240630_175326.JPEG"},
+		{Name: "IMG_20240704_120901.JPEG"},
 	}
 )
