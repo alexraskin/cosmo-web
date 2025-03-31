@@ -35,7 +35,7 @@ var (
 		FullsizeParams:  "quality=80",
 		Folder:          "cosmo",
 	}
-
+	// i plan to use s3 but for now this is fine
 	defaultCatImages = []CatImage{
 		{Name: "0f1z8b8s6eqakqa9zdxk7wrh13zzae36.jpg"},
 		{Name: "0ghgth0axzr1wcx355e6qvg6a07y1fz3.jpg"},
