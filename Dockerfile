@@ -30,4 +30,4 @@ EXPOSE 5000
 
 ENTRYPOINT ["/bin/cosmo-web"]
 
-CMD ["-port", "5000"]
+CMD ["-port", "5000", "-config", "/var/lib/config.yaml"]

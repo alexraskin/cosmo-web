@@ -25,7 +25,7 @@ func (s *Server) Routes() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.Heartbeat("/ping"))
-	r.Use(cacheControl)
+	r.Use(s.cacheControl)
 
 	r.Use(httprate.Limit(
 		100,
@@ -38,8 +38,8 @@ func (s *Server) Routes() http.Handler {
 	))
 
 	r.Mount("/assets", http.FileServer(s.assets))
-	r.Handle("/robots.txt", serveFile(s.assets, "robots.txt"))
-	r.Handle("/sitemap.xml", serveFile(s.assets, "sitemap.xml"))
+	r.Handle("/robots.txt", s.serveFile(s.assets, "robots.txt"))
+	r.Handle("/sitemap.xml", s.serveFile(s.assets, "sitemap.xml"))
 
 	r.Get("/", s.index)
 	r.Get("/version", s.getVersion)
@@ -70,7 +70,28 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request, err error, status
 }
 
 func (s *Server) index(w http.ResponseWriter, r *http.Request) {
-	data := DefaultGalleryConfig()
+
+	photos, err := s.awsClient.ListKeys(r.Context(), "cosmo/")
+	if err != nil {
+		s.error(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	images := make([]CatImage, len(photos))
+	for i, photo := range photos {
+		fileName := filepath.Base(photo)
+		images[i] = CatImage{
+			URL:  photo,
+			Name: fileName,
+		}
+	}
+
+	data := GalleryData{
+		Title:       "Cosmo the Cat",
+		Description: "a collection of photos of my adorable cat Cosmo",
+		ImageConfig: s.imageConfig,
+		Images:      images,
+	}
 
 	if err := s.tmplFunc(w, "index.gohtml", data); err != nil {
 		slog.ErrorContext(r.Context(), "failed to render projects template", slog.Any("error", err))
@@ -82,7 +103,7 @@ func (s *Server) getVersion(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(s.version))
 }
 
-func serveFile(fs http.FileSystem, path string) http.HandlerFunc {
+func (s *Server) serveFile(fs http.FileSystem, path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		file, err := fs.Open(path)
 		if err != nil {
@@ -100,7 +121,7 @@ func serveFile(fs http.FileSystem, path string) http.HandlerFunc {
 	}
 }
 
-func cacheControl(next http.Handler) http.Handler {
+func (s *Server) cacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
 			w.Header().Set("Cache-Control", "public, max-age=86400")

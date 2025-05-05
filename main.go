@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"html/template"
@@ -10,9 +11,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/alexraskin/cosmo-web/cosmo"
+	"github.com/alexraskin/cosmo-web/internal/aws"
+	"github.com/alexraskin/cosmo-web/internal/config"
 )
 
 var (
@@ -33,6 +35,7 @@ func main() {
 
 	port := flag.String("port", "5000", "port to listen on")
 	devMode := flag.Bool("dev", false, "run in dev mode")
+	configFilePath := flag.String("config", "config.yaml", "path to config file")
 	flag.Parse()
 
 	var (
@@ -64,16 +67,39 @@ func main() {
 		assets = http.FS(Assets)
 	}
 
-	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
+	config, err := config.LoadConfig(*configFilePath)
+	if err != nil {
+		slog.Error("failed to load config", slog.Any("error", err))
+		os.Exit(-1)
+	}
+
+	awsClient, err := aws.New(context.Background(), aws.Config{
+		AccountID: config.AWSConfig.AccountID,
+		Bucket:    config.AWSConfig.Bucket,
+		Region:    config.AWSConfig.Region,
+		AccessKey: config.AWSConfig.AccessKey,
+		SecretKey: config.AWSConfig.SecretKey,
+	})
+
+	if err != nil {
+		slog.Error("failed to create aws client", slog.Any("error", err))
+		os.Exit(-1)
+	}
+
+	imageConfig := cosmo.ImageConfig{
+		BaseURL:         config.ImageConfig.BaseURL,
+		ThumbnailParams: config.ImageConfig.ThumbnailParams,
+		FullsizeParams:  config.ImageConfig.FullsizeParams,
+		Folder:          config.ImageConfig.Folder,
 	}
 
 	server := cosmo.NewServer(
 		cosmo.FormatBuildVersion(version, commit, buildTime),
 		*port,
-		httpClient,
 		assets,
 		tmplFunc,
+		awsClient,
+		imageConfig,
 	)
 
 	go server.Start()

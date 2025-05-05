@@ -9,27 +9,31 @@ import (
 	"os"
 	"runtime"
 	"time"
+
+	"github.com/alexraskin/cosmo-web/internal/aws"
 )
 
 type ExecuteTemplateFunc func(wr io.Writer, name string, data any) error
 
 type Server struct {
-	version    string
-	port       string
-	httpClient *http.Client
-	server     *http.Server
-	assets     http.FileSystem
-	tmplFunc   ExecuteTemplateFunc
+	version     string
+	port        string
+	server      *http.Server
+	assets      http.FileSystem
+	tmplFunc    ExecuteTemplateFunc
+	awsClient   *aws.Client
+	imageConfig ImageConfig
 }
 
-func NewServer(version string, port string, httpClient *http.Client, assets http.FileSystem, tmplFunc ExecuteTemplateFunc) *Server {
+func NewServer(version string, port string, assets http.FileSystem, tmplFunc ExecuteTemplateFunc, awsClient *aws.Client, imageConfig ImageConfig) *Server {
 
 	s := &Server{
-		version:    version,
-		port:       port,
-		httpClient: httpClient,
-		assets:     assets,
-		tmplFunc:   tmplFunc,
+		version:     version,
+		port:        port,
+		assets:      assets,
+		tmplFunc:    tmplFunc,
+		awsClient:   awsClient,
+		imageConfig: imageConfig,
 	}
 
 	s.server = &http.Server{
