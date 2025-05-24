@@ -56,10 +56,10 @@ jobs:
           url: "https://swarmctl.alexraskin.com/v1/update/cosmo_web?image=ghcr.io/alexraskin/cosmo-web:${{ github.sha }}"
           method: "POST"
           timeout: 60000
-          customHeaders: '{"Authorization": "${{ secrets.AUTH_TOKEN }}"}'
+          customHeaders: '{"Authorization": "Bearer ${{ secrets.AUTH_TOKEN }}"}'
       - name: Shoutrrr
         uses: containrrr/shoutrrr-action@v1
         with:
           url: ${{ secrets.SHOUTRRR_URL }}
           title: Deployed cosmo-web:${{ github.sha }}
-          message: See changes at ${{ github.event.compare }}.
+          message: See changes at ${{ github.event.compare }}. 
