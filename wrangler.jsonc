@@ -12,7 +12,17 @@
 	},
 	"compatibility_flags": [
 		"nodejs_compat"
-	]
+	],
+	"r2_buckets": [
+		{
+			"binding": "BUCKET",
+			"bucket_name": "<>"
+		}
+	],
+	"vars": {
+		"IMAGE_BASE_URL": "<>",
+		"IMAGE_FOLDER": "<>"
+	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
